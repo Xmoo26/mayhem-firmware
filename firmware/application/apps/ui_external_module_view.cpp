@@ -19,114 +19,73 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include "ui_external_module_view.hpp"
+#ifndef __UI_EXTERNAL_MODULE_VIEW_H
+#define __UI_EXTERNAL_MODULE_VIEW_H
+
+#include "ui.hpp"
+#include "ui_widget.hpp"
+#include "ui_painter.hpp"
+#include "ui_menu.hpp"
+#include "ui_navigation.hpp"
+
+#include "rffc507x.hpp"
 #include "portapack.hpp"
-#include "ui_standalone_view.hpp"
+#include "memory_map.hpp"
+#include "irq_controls.hpp"
+
+#include <functional>
+#include <utility>
 
 #include "i2cdevmanager.hpp"
 #include "i2cdev_ppmod.hpp"
 
-#include <optional>
-
 namespace ui {
 
-void ExternalModuleView::focus() {
-    dummy.focus();
-}
+class ExternalModuleView : public View {
+   public:
+    ExternalModuleView(NavigationView& nav)
+        : nav_(nav) {
+        add_children({&text_header,
+                      &text_name,
+                      &text_version,
+                      &text_number_apps,
+                      &menu_apps});
 
-void ExternalModuleView::on_tick_second() {
-    i2cdev::I2CDevManager::manual_scan();
-
-    auto dev = (i2cdev::I2cDev_PPmod*)i2cdev::I2CDevManager::get_dev_by_model(I2C_DEVMDL::I2CDECMDL_PPMOD);
-
-    if (!dev) {
         text_header.set("No module connected");
-        text_name.set("");
-        text_version.set("");
-        text_number_apps.set("");
-        text_app1_name.set("");
-        text_app2_name.set("");
-        text_app3_name.set("");
-        text_app4_name.set("");
-        text_app5_name.set("");
-        return;
+
+        signal_token_tick_second = rtc_time::signal_tick_second += [this]() {
+            on_tick_second();
+        };
     }
 
-    auto device_info = dev->readDeviceInfo();
-
-    if (device_info.has_value() == false) {
-        text_header.set("No module connected");
-        text_name.set("");
-        text_version.set("");
-        text_number_apps.set("");
-        text_app1_name.set("");
-        text_app2_name.set("");
-        text_app3_name.set("");
-        text_app4_name.set("");
-        text_app5_name.set("");
-        return;
+    ~ExternalModuleView() {
+        rtc_time::signal_tick_second -= signal_token_tick_second;
     }
 
-    text_header.set("Module found");
+    std::string title() const override { return "Ext Module"; };
+    void focus() override;
 
-    std::string btnText = (std::string) "Module: " + device_info->module_name;
-    text_name.set(btnText);
-    text_version.set("Version: " + std::to_string(device_info->module_version));
-    text_number_apps.set("No# Apps: " + std::to_string(device_info->application_count));
+   private:
+    NavigationView& nav_;
+    Text text_header{{16, 16, 208, 16}};
+    Text text_name{{24, 32, 200, 16}};
+    Text text_version{{24, 48, 200, 16}};
+    Text text_number_apps{{24, 64, 200, 16}};
 
-    for (uint32_t i = 0; i < device_info->application_count && i < 5; i++) {
-        auto appInfo = dev->getStandaloneAppInfo(i);
-        if (appInfo.has_value() == false) {
-            continue;
-        }
+    // Scrollable, unlimited app list.
+    MenuView menu_apps{
+        {0, 84, screen_width, screen_height - 84},
+        true};
 
-        std::string btnText = (std::string) "App " + std::to_string(i + 1) + ": " + (const char*)appInfo->app_name;
+    // Rebuild the list only when the reported app count changes, so the user
+    // can scroll without it resetting every second.
+    int32_t shown_count_{-1};
 
-        switch (appInfo->menu_location) {
-            case app_location_t::UTILITIES:
-                btnText += " (Utilities)";
-                break;
-            case app_location_t::RX:
-                btnText += " (RX)";
-                break;
-            case app_location_t::TX:
-                btnText += " (TX)";
-                break;
-            case app_location_t::TRX:
-                btnText += " (TRX)";
-                break;
-            case app_location_t::SETTINGS:
-                btnText += " (Settings)";
-                break;
-            case app_location_t::DEBUG:
-                btnText += " (Debug)";
-                break;
-            case app_location_t::HOME:
-                btnText += " (Home)";
-                break;
-            case app_location_t::GAMES:
-                btnText += " (Games)";
-                break;
-        }
+    SignalToken signal_token_tick_second{};
 
-        switch (i) {
-            case 0:
-                text_app1_name.set(btnText);
-                break;
-            case 1:
-                text_app2_name.set(btnText);
-                break;
-            case 2:
-                text_app3_name.set(btnText);
-                break;
-            case 3:
-                text_app4_name.set(btnText);
-                break;
-            case 4:
-                text_app5_name.set(btnText);
-                break;
-        }
-    }
-}
+    void on_tick_second();
+};
 
 }  // namespace ui
+
+#endif
