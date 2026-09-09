@@ -1,0 +1,6 @@
+f=085600000,d=Omroep Brabant
+f=096800000,d=3FM
+f=089700000,d=Arrow Jazz
+f=099400000,d=Slam FM
+f=101600000,d=Sky Radio
+f=102300000,d=Radio 538
