@@ -366,6 +366,18 @@ SetUIView::SetUIView(NavigationView& nav) {
                   &button_save,
                   &button_cancel});
 
+    // Real (CAT4004) LCD backlight brightness: only boards with a multi-level
+    // driver support it, so show the control only there.
+    if (portapack::backlight()->levels() > 1) {
+        add_child(&label_brightness);
+        add_child(&field_brightness);
+        field_brightness.set_value(pmem::config_backlight_level());
+        field_brightness.on_change = [](int32_t v) {
+            pmem::set_config_backlight_level(v);
+            portapack::backlight()->set_level(v * 2 + 1);  // apply live
+        };
+    }
+
     // Display "Disable speaker" option only if AK4951 Codec which has separate speaker/headphone control
     if (audio::speaker_disable_supported()) {
         add_child(&toggle_speaker);

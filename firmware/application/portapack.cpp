@@ -505,6 +505,8 @@ static void initialize_boot_splash_screen() {
 
     chThdSleepMilliseconds(17);
     portapack::backlight()->on();
+    // Apply the saved real backlight level (CAT4004 boards; no-op on on/off boards).
+    portapack::backlight()->set_level(persistent_memory::config_backlight_level() * 2 + 1);
 
     painter.draw_bitmap(
         {portapack::display.width() / 2 - 40, portapack::display.height() / 2 - 8},

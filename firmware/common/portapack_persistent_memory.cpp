@@ -225,7 +225,7 @@ struct data_t {
     // Rotary encoder dial sensitivity (encoder.cpp/hpp)
     uint16_t encoder_dial_sensitivity : 4;
 
-    uint16_t UNUSED_5 : 4;  // Deprecated: was fake_brightness_level
+    uint16_t backlight_level : 4;  // Real CAT4004 backlight level index 1..15 (0 = unset -> default)
 
     // Encoder rotation rate multiplier for larger increments when rotated rapidly
     uint16_t encoder_rate_multiplier : 4;
@@ -298,7 +298,7 @@ struct data_t {
           frequency_tx_correction(0),
 
           encoder_dial_sensitivity(DIAL_SENSITIVITY_NORMAL),
-          UNUSED_5(0),
+          backlight_level(BACKLIGHT_LEVEL_DEFAULT),
           encoder_rate_multiplier(1),
           UNUSED(0),
 
@@ -1118,6 +1118,17 @@ uint8_t encoder_dial_sensitivity() {
 }
 void set_encoder_dial_sensitivity(uint8_t v) {
     data->encoder_dial_sensitivity = v;
+}
+
+uint8_t config_backlight_level() {
+    // 0 means the field was never set (fresh pmem, or an upgrade from the old
+    // fake-brightness field): fall back to the default.
+    return (data->backlight_level == 0) ? BACKLIGHT_LEVEL_DEFAULT : data->backlight_level;
+}
+void set_config_backlight_level(uint8_t v) {
+    if (v < BACKLIGHT_LEVEL_MIN) v = BACKLIGHT_LEVEL_MIN;
+    if (v > BACKLIGHT_LEVEL_MAX) v = BACKLIGHT_LEVEL_MAX;
+    data->backlight_level = v;
 }
 uint8_t encoder_rate_multiplier() {
     uint8_t v = data->encoder_rate_multiplier;

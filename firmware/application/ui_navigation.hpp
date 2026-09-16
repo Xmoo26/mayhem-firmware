@@ -295,6 +295,12 @@ class SystemStatusView : public View {
         Theme::getInstance()->bg_dark->foreground,
         Theme::getInstance()->bg_dark->background};
 
+    ImageButton button_brightness{
+        {0, 0, 2 * 8, 1 * 16},
+        &bitmap_icon_brightness,
+        Theme::getInstance()->fg_light->foreground,
+        Theme::getInstance()->bg_dark->background};
+
     ImageButton button_bias_tee{
         {0, 0, 2 * 8, 1 * 16},
         &bitmap_icon_biast_off,
@@ -315,6 +321,7 @@ class SystemStatusView : public View {
 
     void on_converter();
     void on_bias_tee();
+    void on_brightness();
     void on_camera();
     void on_title();
     void refresh();

@@ -360,6 +360,16 @@ class SetUIView : public View {
         20,
         "Back button in menu"};
 
+    Text label_brightness{
+        {3 * 8, 10 * 16, 12 * 8, 16},
+        "Brightness:"};
+    NumberField field_brightness{
+        {16 * 8, 10 * 16},
+        2,
+        {portapack::persistent_memory::BACKLIGHT_LEVEL_MIN, portapack::persistent_memory::BACKLIGHT_LEVEL_MAX},
+        1,
+        ' '};
+
     Labels labels{
         {{3 * 8, 11 * 16}, "Show/Hide Status Icons", Theme::getInstance()->fg_light->foreground},
     };

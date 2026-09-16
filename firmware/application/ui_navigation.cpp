@@ -368,6 +368,10 @@ SystemStatusView::SystemStatusView(
         EventDispatcher::send_message(message);
     };
 
+    button_brightness.on_select = [this](ImageButton&) {
+        this->on_brightness();
+    };
+
     button_clock_status.on_select = [this](ImageButton&) {
         this->on_clk();
     };
@@ -442,6 +446,7 @@ void SystemStatusView::refresh() {
     status_icons.clear();
     if (!pmem::ui_hide_camera()) status_icons.add(&button_camera);
     if (!pmem::ui_hide_sleep()) status_icons.add(&button_sleep);
+    if (portapack::backlight()->levels() > 1) status_icons.add(&button_brightness);  // real (CAT4004) backlight only
     if (!pmem::ui_hide_stealth()) status_icons.add(&toggle_stealth);
     if (!pmem::ui_hide_converter()) status_icons.add(&button_converter);
     if (!pmem::ui_hide_bias_tee()) status_icons.add(&button_bias_tee);
@@ -525,6 +530,18 @@ void SystemStatusView::on_converter() {
     // TODO: Maybe expose the 'enabled_' flag on models.
     receiver_model.set_target_frequency(receiver_model.target_frequency());
     refresh();
+}
+
+void SystemStatusView::on_brightness() {
+    // Quick cycle: step the real backlight down by a quarter of the range and
+    // wrap to maximum, applying live and persisting the choice.
+    auto v = pmem::config_backlight_level();  // 1..15
+    if (v > 4)
+        v -= 4;
+    else
+        v = pmem::BACKLIGHT_LEVEL_MAX;
+    pmem::set_config_backlight_level(v);
+    portapack::backlight()->set_level(v * 2 + 1);  // driver level 1..31
 }
 
 void SystemStatusView::on_bias_tee() {

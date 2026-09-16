@@ -258,6 +258,15 @@ void set_lcd_normally_black(bool v);
 
 uint8_t encoder_dial_sensitivity();
 void set_encoder_dial_sensitivity(uint8_t v);
+
+/* Real (CAT4004) LCD backlight level. Stored as an index 1..15; the driver
+ * uses 0..31, so map with (level * 2 + 1). BACKLIGHT_LEVEL_DEFAULT maps to the
+ * driver's historical initial brightness (25). */
+static constexpr uint8_t BACKLIGHT_LEVEL_MIN = 1;
+static constexpr uint8_t BACKLIGHT_LEVEL_MAX = 15;
+static constexpr uint8_t BACKLIGHT_LEVEL_DEFAULT = 12;
+uint8_t config_backlight_level();
+void set_config_backlight_level(uint8_t v);
 uint8_t encoder_rate_multiplier();
 void set_encoder_rate_multiplier(uint8_t v);
 bool encoder_dial_direction();
