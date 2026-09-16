@@ -277,6 +277,13 @@ static const portapack::cpld::Config& portapack_cpld_config() {
 }
 
 Backlight* backlight() {
+    // PortaRF: the R1/R2 model detection does not apply; try the CAT4004 dimming
+    // driver directly (device_type is set during display.init(), before the first
+    // backlight() call). Safe: if the backlight is a plain on/off LED the pulse
+    // protocol only toggles the enable line.
+    if (device_type == DeviceType::DEV_PORTARF)
+        return static_cast<portapack::Backlight*>(&backlight_cat4004);
+
     return (portapack_model() == PortaPackModel::R2_20170522)
                ? static_cast<portapack::Backlight*>(&backlight_cat4004)  // R2_20170522
                : static_cast<portapack::Backlight*>(&backlight_on_off);  // R1_20150901
