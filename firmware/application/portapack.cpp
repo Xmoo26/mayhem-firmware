@@ -277,9 +277,17 @@ static const portapack::cpld::Config& portapack_cpld_config() {
 }
 
 Backlight* backlight() {
+#ifdef PRALINE
+    // HackRF Pro (PRALINE): the R1/R2 model detection is for H1/H2 boards and
+    // does not apply here. Use the CAT4004 dimming driver directly; if the Pro's
+    // backlight is a plain on/off LED it simply stays lit (the pulse protocol
+    // only toggles the enable line), so this is safe to try.
+    return static_cast<portapack::Backlight*>(&backlight_cat4004);
+#else
     return (portapack_model() == PortaPackModel::R2_20170522)
                ? static_cast<portapack::Backlight*>(&backlight_cat4004)  // R2_20170522
                : static_cast<portapack::Backlight*>(&backlight_on_off);  // R1_20150901
+#endif
 }
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
