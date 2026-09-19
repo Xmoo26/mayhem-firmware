@@ -2591,9 +2591,12 @@ void SymField::set_value(std::string_view value) {
     if (value.length() > value_.length())
         return;
 
-    // Right-align string in field.
-    auto left_padding = value_.length() - value.length();
-    value_ = std::string(static_cast<size_t>(left_padding), '\0') + std::string{value};
+    // Left-align string in field, padding the remainder on the right. The stored value
+    // can come back with its trailing pad trimmed (e.g. a settings load), and the only
+    // string user - APRS callsigns - must stay left-aligned; right-aligning a trimmed
+    // callsign turned "DEST" into "  DEST" and produced an invalid frame (issue #3299).
+    auto right_padding = value_.length() - value.length();
+    value_ = std::string{value} + std::string(static_cast<size_t>(right_padding), '\0');
     ensure_all_symbols();
 }
 
