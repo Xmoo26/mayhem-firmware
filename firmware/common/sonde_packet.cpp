@@ -47,6 +47,19 @@ static uint8_t calfrchk[51];        // so subframes are preserved while populate
 #define pos_GPSecefY 0x114  // 0x118  // 4 byte (not actually used since Y and Z are following X, and grabbed in that same loop)
 #define pos_GPSecefZ 0x118  // 0x11C  // 4 byte (same as Y)
 
+// MRZ-N1 / MP3-H1, from https://github.com/rs1729/RS/blob/master/mrz/mp3h1.c
+// Byte offsets are relative to the de-Manchestered frame start (byte0 = 0xAA, byte1 = 0xBF, byte2 = 0x35).
+#define MRZ_FRAME_LEN 51
+#define MRZ_pos_CNT1 3        // frame counter nibble
+#define MRZ_pos_ecefX 8       // int32 little-endian, /100 -> metres
+#define MRZ_pos_ecefY 12      //   (Y and Z follow X)
+#define MRZ_pos_ecefZ 16
+#define MRZ_pos_ecefV 20      // 3x int16 little-endian, /100 -> m/s
+#define MRZ_pos_nSats 26      // 1 byte
+#define MRZ_pos_CRC 48        // uint16 little-endian
+#define MRZ_CRC_START MRZ_pos_CNT1
+#define MRZ_CRC_LEN 45
+
 #include "mathdef.hpp"
 
 Packet::Packet(
@@ -137,6 +150,35 @@ GPS_data Packet::get_GPS_data() const {
         result.alt = p / cos(phi) - R;
         result.lat = phi * 180 / PI;
         result.lon = lam * 180 / PI;
+    } else if (type_ == Type::Meteoradiy_MRZ) {
+        // MRZ carries an ECEF position (int32 little-endian, /100 -> metres); reassemble
+        // each coordinate byte-wise so the byte order matches the reference decoder.
+        double_t X[3];
+        for (int32_t k = 0; k < 3; k++) {
+            uint32_t b0 = reader_bi_m.read((MRZ_pos_ecefX + 4 * k + 0) * 8, 8);
+            uint32_t b1 = reader_bi_m.read((MRZ_pos_ecefX + 4 * k + 1) * 8, 8);
+            uint32_t b2 = reader_bi_m.read((MRZ_pos_ecefX + 4 * k + 2) * 8, 8);
+            uint32_t b3 = reader_bi_m.read((MRZ_pos_ecefX + 4 * k + 3) * 8, 8);
+            int32_t XYZ = (int32_t)(b0 | (b1 << 8) | (b2 << 16) | (b3 << 24));
+            X[k] = XYZ / 100.0;
+        }
+
+        double_t a = 6378137.0;
+        double_t b = 6356752.31424518;
+        double_t e = sqrt((a * a - b * b) / (a * a));
+        double_t ee = sqrt((a * a - b * b) / (b * b));
+
+        double_t lam = atan2(X[1], X[0]);
+        double_t p = sqrt(X[0] * X[0] + X[1] * X[1]);
+        double_t t = atan2(X[2] * a, p * b);
+        double_t phi = atan2(X[2] + ee * ee * b * sin(t) * sin(t) * sin(t),
+                             p - e * e * a * cos(t) * cos(t) * cos(t));
+
+        double_t R = a / sqrt(1 - e * e * sin(phi) * sin(phi));
+
+        result.alt = p / cos(phi) - R;
+        result.lat = phi * 180 / PI;
+        result.lon = lam * 180 / PI;
     }
     return result;
 }
@@ -162,6 +204,8 @@ uint32_t Packet::frame() const {
         return frame_number;
     } else if (type_ == Type::Meteomodem_M20) {
         return reader_bi_m.read(0x15 * 8, 8);
+    } else if (type_ == Type::Meteoradiy_MRZ) {
+        return reader_bi_m.read(MRZ_pos_CNT1 * 8, 8);  // frame counter
     } else {
         return 0;  // Unknown
     }
@@ -456,6 +500,8 @@ std::string Packet::type_string() const {
             return "Meteomodem M2K2";
         case Type::Vaisala_RS41_SG:
             return "Vaisala RS41-SG";
+        case Type::Meteoradiy_MRZ:
+            return "Meteo-Radiy MRZ";
         default:
             return "? 0x" + symbols_formatted().data.substr(0, 6);
     }
@@ -518,6 +564,8 @@ bool Packet::crc_ok() const {
             return crc_ok_RS41();
         case Type::Meteomodem_M20:
             return check_ok_M20();
+        case Type::Meteoradiy_MRZ:
+            return crc_ok_MRZ();
         default:
             return true;  // euquiq: it was false, but if no crc routine, then no way to check
     }
@@ -531,6 +579,21 @@ bool Packet::check_ok_M20() const {
     if (packet_.size() / 8 < b1)
         return false;
     return true;
+}
+
+bool Packet::crc_ok_MRZ() const {
+    // CRC16 with reversed poly 0xA001 (rev of 0x8005), init 0xFFFF, over bytes
+    // [MRZ_CRC_START .. +MRZ_CRC_LEN), compared to the 16-bit little-endian value at
+    // MRZ_pos_CRC. Matches rs1729/RS mp3h1.c crc16rev().
+    uint16_t crc = 0xFFFF;
+    for (int i = 0; i < MRZ_CRC_LEN; i++) {
+        crc ^= reader_bi_m.read((MRZ_CRC_START + i) * 8, 8);
+        for (int j = 0; j < 8; j++)
+            crc = (crc & 0x0001) ? ((crc >> 1) ^ 0xA001) : (crc >> 1);
+    }
+    uint16_t crc_frame = reader_bi_m.read(MRZ_pos_CRC * 8, 8) |
+                         (reader_bi_m.read((MRZ_pos_CRC + 1) * 8, 8) << 8);
+    return crc == crc_frame;
 }
 
 // each data block has a 2 byte header, data, and 2 byte tail:

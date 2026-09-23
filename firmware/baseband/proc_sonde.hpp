@@ -154,6 +154,9 @@ class SondeProcessor : public BasebandProcessor {
         [this](const float raw_symbol) {
             const uint_fast8_t sliced_symbol = (raw_symbol >= 0.0f) ? 1 : 0;
             this->packet_builder_fsk_4800_Vaisala.execute(sliced_symbol);
+            // MRZ shares the 4800 sym/s path: its data rate is 2400 bit/s but Manchester
+            // coding doubles the symbol rate. The de-Manchester happens in the app.
+            this->packet_builder_fsk_4800_MRZ.execute(sliced_symbol);
         }};
     PacketBuilder<BitPattern, NeverMatch, FixedLength> packet_builder_fsk_4800_Vaisala{
         {0b00001000011011010101001110001000, 32, 1},  // euquiq Header detects 4 of 8 bytes 0x10B6CA11 /this is in raw format) (these bits are not passed at the beginning of packet)
@@ -162,6 +165,21 @@ class SondeProcessor : public BasebandProcessor {
         {320 * 8},
         [this](const baseband::Packet& packet) {
             const SondePacketMessage message{sonde::Packet::Type::Vaisala_RS41_SG, packet};
+            shared_memory.application_queue.push(message);
+        }};
+
+    // MRZ-N1 / MP3-H1 (403 MHz), issue #3309. The preamble is "1001" x9 + "10101010"
+    // (rs1729/RS mp3h1.c); 0x99999999 matches the "1001" run in the raw (pre-Manchester)
+    // stream. The captured length is the raw Manchester frame: 51 bytes x 8 x2.
+    // NOTE: header alignment (so the delivered packet begins at frame byte 0 = 0xAA),
+    // Manchester polarity, and the exact captured length still need tuning against a real
+    // 403 MHz MRZ recording before this path decodes on hardware.
+    PacketBuilder<BitPattern, NeverMatch, FixedLength> packet_builder_fsk_4800_MRZ{
+        {0b10011001100110011001100110011001, 32, 1},
+        {},
+        {51 * 8 * 2},
+        [this](const baseband::Packet& packet) {
+            const SondePacketMessage message{sonde::Packet::Type::Meteoradiy_MRZ, packet};
             shared_memory.application_queue.push(message);
         }};
 
