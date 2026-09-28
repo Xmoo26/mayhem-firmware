@@ -82,7 +82,7 @@ constexpr region_t spifi_cached{LPC_SPIFI_DATA_CACHED_BASE, spifi_uncached.size(
  * 32 -> 40 KiB to fit bigger apps (e.g. FT8 RX with its map); uses PRALINE's extra Bank 2
  * SRAM. shared_memory (the M0<->M4 mailbox) moves up to stay clear of the app slot. Keep
  * maximum_application_size in firmware/tools/external_app_info.py and external.ld in step. */
-constexpr region_t m4_code{local_sram_1.base(), 64_KiB};
+constexpr region_t m4_code{local_sram_1.base(), 40_KiB};
 constexpr region_t shared_memory{m4_code.end(), 8_KiB};
 
 constexpr region_t m4_code_hackrf = local_sram_0;
