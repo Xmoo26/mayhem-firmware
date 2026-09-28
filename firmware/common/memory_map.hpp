@@ -62,7 +62,10 @@ struct region_t {
 namespace map {
 
 constexpr region_t local_sram_0{0x10000000, 96_KiB};
-constexpr region_t local_sram_1{0x10080000, 40_KiB};
+/* NB: 72 KiB is the PRALINE (LPC4330) size of Local SRAM Bank 2. On the HackRF One
+ * (LPC4320) this bank is only 40 KiB, so the enlarged external-app slot below is
+ * PRALINE-only. This tree is built for PRALINE. */
+constexpr region_t local_sram_1{0x10080000, 72_KiB};
 
 constexpr region_t ahb_ram_0{0x20000000, 32_KiB};
 constexpr region_t ahb_ram_1{0x20008000, 16_KiB};
@@ -75,7 +78,11 @@ constexpr region_t spifi_cached{LPC_SPIFI_DATA_CACHED_BASE, spifi_uncached.size(
 
 /////////////////////////////////
 
-constexpr region_t m4_code{local_sram_1.base(), 32_KiB};
+/* External apps and their M4 baseband load here (baseband first, M0 app after). Enlarged
+ * 32 -> 40 KiB to fit bigger apps (e.g. FT8 RX with its map); uses PRALINE's extra Bank 2
+ * SRAM. shared_memory (the M0<->M4 mailbox) moves up to stay clear of the app slot. Keep
+ * maximum_application_size in firmware/tools/external_app_info.py and external.ld in step. */
+constexpr region_t m4_code{local_sram_1.base(), 40_KiB};
 constexpr region_t shared_memory{m4_code.end(), 8_KiB};
 
 constexpr region_t m4_code_hackrf = local_sram_0;
