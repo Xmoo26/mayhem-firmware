@@ -286,13 +286,19 @@ bool GeoMap::on_encoder(const EncoderEvent delta) {
  * focus on the GeoPos field) is unaffected. */
 bool GeoMap::on_key(const KeyEvent key) {
     constexpr int step = 40;  // screen pixels per press
+    int dx = 0, dy = 0;
     switch (key) {
-        case KeyEvent::Right: pan(-step, 0); return true;
-        case KeyEvent::Left: pan(step, 0); return true;
-        case KeyEvent::Up: pan(0, step); return true;
-        case KeyEvent::Down: pan(0, -step); return true;
+        case KeyEvent::Right: dx = -step; break;
+        case KeyEvent::Left: dx = step; break;
+        case KeyEvent::Up: dy = step; break;
+        case KeyEvent::Down: dy = -step; break;
         default: return false;
     }
+    // Free-look: stop following the centred marker, otherwise the tracked target
+    // stays pinned to the screen centre and appears to pan along with the map.
+    set_manual_panning(true);
+    pan(dx, dy);
+    return true;
 }
 
 void GeoMap::set_zoom(int16_t zoom) {
