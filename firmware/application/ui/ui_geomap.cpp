@@ -814,9 +814,12 @@ void GeoMap::paint(Painter& painter) {
         set_clean();
     }
 
-    // Draw the marker in the center
+    // Draw the followed item: centred while it is being tracked, or at its real geo
+    // position while free-panning (otherwise it would vanish behind the pan crosshair).
     if (!manual_panning_ && !hide_center_marker_) {
         draw_marker(painter, r.center() + Point(zoom_pixel_offset, zoom_pixel_offset), angle_, tag_, Color::red(), Color::white(), Color::black());
+    } else if (manual_panning_ && has_tracked_marker_) {
+        draw_marker_item(painter, tracked_marker_, Color::red(), Color::white(), Color::black());
     }
 }
 
@@ -1139,6 +1142,8 @@ void GeoMapView::update_my_orientation(uint16_t angle, bool refresh) {
 }
 
 void GeoMapView::update_position(float lat, float lon, uint16_t angle, int32_t altitude, int32_t speed) {
+    // Keep the followed item drawable at its real position even while free-panning.
+    geomap.set_tracked_marker(lat, lon, angle);
     if (geomap.manual_panning()) {
         geomap.set_dirty();
         return;

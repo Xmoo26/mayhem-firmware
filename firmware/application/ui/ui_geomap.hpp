@@ -399,6 +399,19 @@ class GeoMap : public Widget {
     }
     bool hide_center_marker() { return hide_center_marker_; }
 
+    /* The followed item's real position. Normally it sits under the centre marker, but
+     * while the user free-pans (manual_panning) the centre marker is replaced by the pan
+     * crosshair, so this is drawn at its geo position instead - otherwise the followed
+     * station/aircraft/sonde would vanish the moment you pan away from centre. */
+    void set_tracked_marker(float lat, float lon, uint16_t angle) {
+        tracked_marker_.lat = lat;
+        tracked_marker_.lon = lon;
+        tracked_marker_.angle = angle;
+        tracked_marker_.tag = tag_;
+        tracked_marker_.color = Color::red();
+        has_tracked_marker_ = true;
+    }
+
     static const int NumMarkerListElements = 30;
 
     void clear_markers();
@@ -500,6 +513,10 @@ class GeoMap : public Widget {
     float pixels_per_km{};
     uint16_t angle_{};
     std::string tag_{};
+
+    // The followed item, drawn at its geo position while free-panning (see set_tracked_marker).
+    GeoMarker tracked_marker_{};
+    bool has_tracked_marker_{false};
 
     // the portapack's position data ( for example injected from serial )
     GeoMarker my_pos{INVALID_LAT_LON, INVALID_LAT_LON, INVALID_ANGLE, ""};  // lat, lon, angle, tag
