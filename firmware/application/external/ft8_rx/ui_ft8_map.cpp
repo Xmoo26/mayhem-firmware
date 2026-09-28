@@ -289,6 +289,20 @@ bool FT8Map::on_touch(const TouchEvent event) {
     }
 }
 
+/* Arrow keys move the viewport (opposite sign to a touch drag, which grabs the map).
+ * Consuming them keeps focus on the map; leave it with the encoder, a touch, or the
+ * Back/Home chord. */
+bool FT8Map::on_key(const KeyEvent key) {
+    constexpr int step = 40;  // screen pixels per press
+    switch (key) {
+        case KeyEvent::Right: pan(-step, 0); return true;
+        case KeyEvent::Left: pan(step, 0); return true;
+        case KeyEvent::Up: pan(0, step); return true;
+        case KeyEvent::Down: pan(0, -step); return true;
+        default: return false;
+    }
+}
+
 /* FT8SpotList **************************************************************/
 
 int FT8SpotList::selected() const {
@@ -371,11 +385,66 @@ bool FT8SpotList::on_touch(const TouchEvent event) {
         return false;
     const int y = event.point.y() - screen_rect().top() - 8;
     const int i = scroll_ + y / 8;
-    if (y < 0 || i >= (int)spots_.count || i == selected())
+    if (y < 0 || i >= (int)spots_.count) {
         select(-1);
-    else
-        select(i);
+        return true;
+    }
+    select(i);
+    if (on_open)
+        on_open(i);  // tap a row -> open its full-screen detail
     return true;
+}
+
+/* Select opens the highlighted station's detail (for the rotary + OK, not just touch). */
+bool FT8SpotList::on_key(const KeyEvent key) {
+    if (key == KeyEvent::Select && selected() >= 0 && on_open) {
+        on_open(selected());
+        return true;
+    }
+    return false;
+}
+
+/* FT8SpotDetailView ********************************************************/
+
+FT8SpotDetailView::FT8SpotDetailView(NavigationView& nav, const FT8Spot& spot, bool have_home, float home_lat, float home_lon)
+    : nav_{nav}, spot_{spot}, have_home_{have_home}, home_lat_{home_lat}, home_lon_{home_lon} {
+    add_children({&button_done});
+    button_done.on_select = [this](Button&) { nav_.pop(); };
+}
+
+void FT8SpotDetailView::focus() {
+    button_done.focus();
+}
+
+void FT8SpotDetailView::paint(Painter& painter) {
+    const auto& s = spot_;
+    const auto& font = ui::font::fixed_8x16;
+    const Color bg = Color::black();
+    const Color label = Theme::getInstance()->fg_light->foreground;
+
+    painter.fill_rectangle({{0, 0}, {screen_width, screen_height - 48}}, bg);
+
+    // Callsign, large, coloured by CQ vs reply (same code as on the map).
+    painter.draw_string({2 * 8, 1 * 16}, font, s.cq ? Color::green() : Color::yellow(), bg, std::string(s.call));
+
+    int y = 3 * 16;
+    const auto row = [&](const char* lbl, const std::string& val) {
+        painter.draw_string({2 * 8, y}, font, label, bg, lbl);
+        painter.draw_string({12 * 8, y}, font, Color::white(), bg, val);
+        y += 20;
+    };
+
+    row("Grid", std::string(s.grid));
+    char name[16];
+    row("Country", country_for_call(s.call, name));
+    if (have_home_) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%lu km", (unsigned long)distance_km(home_lat_, home_lon_, s.lat, s.lon));
+        row("Distance", buf);
+        snprintf(buf, sizeof(buf), "%lu deg", (unsigned long)bearing_deg(home_lat_, home_lon_, s.lat, s.lon));
+        row("Bearing", buf);
+    }
+    row("Type", s.cq ? "CQ" : "reply");
 }
 
 /* FT8MapView ***************************************************************/
@@ -416,6 +485,10 @@ FT8MapView::FT8MapView(NavigationView& nav, std::string& qth, FT8Spots& spots, s
     geomap.on_zoom_step = [this](int dir) { step_zoom(dir); };
     geomap.on_paint_overlay = [this](Painter& painter) { draw_overlay(painter); };
     spot_list.on_change = [this]() { geomap.refresh(); };
+    spot_list.on_open = [this](int i) {
+        if (i >= 0 && i < (int)spots_.count)
+            nav_.push<FT8SpotDetailView>(spots_.spot[i], have_home_, home_lat_, home_lon_);
+    };
 
     // Without a map, focus() tells the user and closes the view.
     geomap.set_map_file(adsb_dir / u"world_map_2048.bin");

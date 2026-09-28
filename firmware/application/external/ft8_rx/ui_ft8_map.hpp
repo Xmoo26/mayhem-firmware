@@ -84,6 +84,7 @@ class FT8Map : public GeoMap {
     void paint(Painter& painter) override;
     bool on_encoder(const EncoderEvent delta) override;
     bool on_touch(const TouchEvent event) override;
+    bool on_key(const KeyEvent key) override;  // arrow keys pan the view
 
    private:
     Point drag_start_{};
@@ -102,6 +103,7 @@ class FT8SpotList : public Widget {
     void paint(Painter& painter) override;
     bool on_encoder(const EncoderEvent delta) override;
     bool on_touch(const TouchEvent event) override;
+    bool on_key(const KeyEvent key) override;  // Select opens the detail view
 
     /* Index of the selected station, or -1. The selection follows the callsign, so it
      * stays on the same station while the store reorders. */
@@ -112,6 +114,7 @@ class FT8SpotList : public Widget {
     float home_lat{0};
     float home_lon{0};
     std::function<void()> on_change{};
+    std::function<void(int)> on_open{};  // open the detail view for a station index
 
    private:
     const FT8Spots& spots_;
@@ -120,6 +123,29 @@ class FT8SpotList : public Widget {
 
     int rows() const { return (screen_rect().height() - 8) / 8; }
     void select(int index);
+};
+
+/* A single station shown full-screen in the normal (readable) font: call, grid,
+ * country and, with a home locator set, distance and bearing. Opened by tapping or
+ * selecting a row of the last-heard list, which is too small to read comfortably. */
+class FT8SpotDetailView : public View {
+   public:
+    FT8SpotDetailView(NavigationView& nav, const FT8Spot& spot, bool have_home, float home_lat, float home_lon);
+
+    void paint(Painter& painter) override;
+    void focus() override;
+    std::string title() const override { return "Station"; }
+
+   private:
+    NavigationView& nav_;
+    FT8Spot spot_{};
+    bool have_home_{false};
+    float home_lat_{0};
+    float home_lon_{0};
+
+    Button button_done{
+        {screen_width - 96 - 8, screen_height - 32 - 8, 96, 32},
+        "Done"};
 };
 
 /* Map of the stations heard, drawn from home, which is the 4-character locator set in
