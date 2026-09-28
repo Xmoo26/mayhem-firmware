@@ -289,20 +289,6 @@ bool FT8Map::on_touch(const TouchEvent event) {
     }
 }
 
-/* Arrow keys move the viewport (opposite sign to a touch drag, which grabs the map).
- * Consuming them keeps focus on the map; leave it with the encoder, a touch, or the
- * Back/Home chord. */
-bool FT8Map::on_key(const KeyEvent key) {
-    constexpr int step = 40;  // screen pixels per press
-    switch (key) {
-        case KeyEvent::Right: pan(-step, 0); return true;
-        case KeyEvent::Left: pan(step, 0); return true;
-        case KeyEvent::Up: pan(0, step); return true;
-        case KeyEvent::Down: pan(0, -step); return true;
-        default: return false;
-    }
-}
-
 /* FT8SpotList **************************************************************/
 
 int FT8SpotList::selected() const {

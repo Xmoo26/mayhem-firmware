@@ -372,6 +372,7 @@ class GeoMap : public Widget {
 
     bool on_touch(const TouchEvent event) override;
     bool on_encoder(const EncoderEvent delta) override;
+    bool on_key(const KeyEvent key) override;  // arrow keys pan the view (when the map has focus)
     bool on_keyboard(const KeyboardEvent event) override;
 
     void update_my_position(float lat, float lon, int32_t altitude);

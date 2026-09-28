@@ -84,7 +84,7 @@ class FT8Map : public GeoMap {
     void paint(Painter& painter) override;
     bool on_encoder(const EncoderEvent delta) override;
     bool on_touch(const TouchEvent event) override;
-    bool on_key(const KeyEvent key) override;  // arrow keys pan the view
+    // arrow-key panning is inherited from GeoMap::on_key
 
    private:
     Point drag_start_{};

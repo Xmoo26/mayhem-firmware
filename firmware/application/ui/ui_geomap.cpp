@@ -281,6 +281,20 @@ bool GeoMap::on_encoder(const EncoderEvent delta) {
     return true;
 }
 
+/* Arrow keys pan the viewport (opposite sign to a touch drag, which grabs the map).
+ * Only reached when the map itself has focus, so the coordinate-prompt (which keeps
+ * focus on the GeoPos field) is unaffected. */
+bool GeoMap::on_key(const KeyEvent key) {
+    constexpr int step = 40;  // screen pixels per press
+    switch (key) {
+        case KeyEvent::Right: pan(-step, 0); return true;
+        case KeyEvent::Left: pan(step, 0); return true;
+        case KeyEvent::Up: pan(0, step); return true;
+        case KeyEvent::Down: pan(0, -step); return true;
+        default: return false;
+    }
+}
+
 void GeoMap::set_zoom(int16_t zoom) {
     if (zoom == 0 || zoom == -1)
         zoom = 1;
