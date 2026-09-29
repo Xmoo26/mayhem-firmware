@@ -403,32 +403,40 @@ void FT8SpotDetailView::focus() {
 }
 
 void FT8SpotDetailView::paint(Painter& painter) {
+    // Painter draws in absolute screen coordinates, and screen_rect() starts below
+    // the 16 px system status bar. Anchor everything to it so the status bar (and its
+    // screenshot button) stays visible instead of being painted over.
+    const auto r = screen_rect();
     const auto& s = spot_;
     const auto& font = ui::font::fixed_8x16;
     const Color bg = Color::black();
     const Color label = Theme::getInstance()->fg_light->foreground;
 
-    painter.fill_rectangle({{0, 0}, {screen_width, screen_height - 48}}, bg);
+    painter.fill_rectangle(r, bg);
 
     // Callsign, large, coloured by CQ vs reply (same code as on the map).
-    painter.draw_string({2 * 8, 1 * 16}, font, s.cq ? Color::green() : Color::yellow(), bg, std::string(s.call));
+    painter.draw_string(r.location() + Point{2 * 8, 1 * 16}, font, s.cq ? Color::green() : Color::yellow(), bg, std::string(s.call));
 
     int y = 3 * 16;
     const auto row = [&](const char* lbl, const std::string& val) {
-        painter.draw_string({2 * 8, y}, font, label, bg, lbl);
-        painter.draw_string({12 * 8, y}, font, Color::white(), bg, val);
+        painter.draw_string(r.location() + Point{2 * 8, y}, font, label, bg, lbl);
+        painter.draw_string(r.location() + Point{12 * 8, y}, font, Color::white(), bg, val);
         y += 20;
     };
 
+    char buf[16];
     row("Grid", std::string(s.grid));
     char name[16];
     row("Country", country_for_call(s.call, name));
     if (have_home_) {
-        char buf[16];
         snprintf(buf, sizeof(buf), "%lu km", (unsigned long)distance_km(home_lat_, home_lon_, s.lat, s.lon));
         row("Distance", buf);
         snprintf(buf, sizeof(buf), "%lu deg", (unsigned long)bearing_deg(home_lat_, home_lon_, s.lat, s.lon));
         row("Bearing", buf);
+    }
+    if (s.freq > 0) {
+        snprintf(buf, sizeof(buf), "%d Hz", s.freq);
+        row("Freq", buf);
     }
     row("Type", s.cq ? "CQ" : "reply");
 }

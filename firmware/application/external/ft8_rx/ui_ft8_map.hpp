@@ -49,6 +49,7 @@ struct FT8Spot {
     char call[12]{};
     char grid[5]{};
     bool cq{false};
+    int16_t freq{0};  // audio frequency of the last decode, Hz (0 = unknown)
 };
 
 /* The stations heard this session, oldest first. A station heard again moves to the
@@ -84,7 +85,11 @@ class FT8Map : public GeoMap {
     void paint(Painter& painter) override;
     bool on_encoder(const EncoderEvent delta) override;
     bool on_touch(const TouchEvent event) override;
-    // arrow-key panning is inherited from GeoMap::on_key
+    // Pan with a touch drag only. The D-pad is left to the focus manager so it can
+    // move off the map (down to the station list, up to the toolbar); GeoMap::on_key
+    // would otherwise consume every arrow to pan and trap focus on the map, which
+    // stops the list from ever being scrolled.
+    bool on_key(const KeyEvent) override { return false; }
 
    private:
     Point drag_start_{};
@@ -143,9 +148,11 @@ class FT8SpotDetailView : public View {
     float home_lat_{0};
     float home_lon_{0};
 
+    // y accounts for the 16 px status bar so the button sits inside the view, not 8 px
+    // off the bottom of the screen.
     Button button_done{
-        {screen_width - 96 - 8, screen_height - 32 - 8, 96, 32},
-        "Done"};
+        {screen_width - 96 - 8, screen_height - 16 - 40, 96, 32},
+        "Back"};
 };
 
 /* Map of the stations heard, drawn from home, which is the 4-character locator set in
