@@ -422,27 +422,7 @@ set(add_to_firmware FALSE)
 DeclareTargets(PBTT btletx)
 set(add_to_firmware TRUE)
 
-### LoRa RX (Meshtastic)
-
-
-set(MODE_FLAGS "-Os")
-set(MODE_CPPSRC
-	proc_lora.cpp
-)
-# These two stay in the SPI flash on purpose. lora_rx is the largest baseband in the
-# firmware (~28 KB), and loading a baseband from the SD card means holding the whole
-# compressed image in the M0 heap - which is 43 KB in total and already mostly spoken
-# for by the app itself. Small basebands load from the card fine; this one cannot.
-DeclareTargets(PLOR lora_rx)
-set(MODE_FLAGS "-O3")
-
-### LoRa TX (Meshtastic)
-set(MODE_FLAGS "-Os")
-set(MODE_CPPSRC
-	proc_lora_tx.cpp
-)
-DeclareTargets(PLOT lora_tx)
-set(MODE_FLAGS "-O3")
+### LoRa RX/TX (Meshtastic) omitted in this build (no-mesh variant).
 
 ### AIS
 
