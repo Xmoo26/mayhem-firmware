@@ -290,11 +290,20 @@ bool GeoMap::on_key(const KeyEvent key) {
     constexpr int step = 40;  // screen pixels per press
     int dx = 0, dy = 0;
     switch (key) {
-        case KeyEvent::Right: dx = -step; break;
-        case KeyEvent::Left: dx = step; break;
-        case KeyEvent::Up: dy = step; break;
-        case KeyEvent::Down: dy = -step; break;
-        default: return false;
+        case KeyEvent::Right:
+            dx = -step;
+            break;
+        case KeyEvent::Left:
+            dx = step;
+            break;
+        case KeyEvent::Up:
+            dy = step;
+            break;
+        case KeyEvent::Down:
+            dy = -step;
+            break;
+        default:
+            return false;
     }
     // Free-look: stop following the centred marker, otherwise the tracked target
     // stays pinned to the screen centre and appears to pan along with the map.
