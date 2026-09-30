@@ -132,8 +132,10 @@ add_custom_command(
 	# Basebands that no longer fit in the ROM image. Without these on the card the
 	# apps that own them report NoImg and do not start, so they belong in the same
 	# package as the firmware that expects them rather than in a separate download.
-	COMMAND mkdir -p firmware_tar/BASEBAND
-	COMMAND cp baseband/sd_baseband/*.img firmware_tar/BASEBAND
+	# A build whose budget keeps every baseband in flash has none, so copy the
+	# directory's contents rather than a glob that fails when it matches nothing.
+	COMMAND mkdir -p firmware_tar/BASEBAND baseband/sd_baseband
+	COMMAND cp -R baseband/sd_baseband/. firmware_tar/BASEBAND/
 	COMMAND cd firmware_tar && tar -cvaf ../${PPFW_FILENAME} *
 	DEPENDS firmware ${FIRMWARE_FILENAME} standalone_apps
 	# Dont use VERBATIM here as it prevents usage of globbing (*)
