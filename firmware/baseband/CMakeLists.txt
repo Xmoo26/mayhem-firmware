@@ -370,6 +370,18 @@ macro(DeclareTargets chunk_tag name)
 
 endmacro()
 
+# The basebands marked below with set(add_to_firmware ${offload_to_firmware}) are moved
+# out of the SPI flash onto the SD card only where the firmware budget needs it: the
+# 1 MB default build cannot hold them next to everything else, and there
+# m4_init_from_sd() loads /BASEBAND/<TAG>.img on demand. Builds with a bigger budget
+# (PortaRF 2 MB, PRALINE 3.5 MB) keep them in flash, so those apps do not fail with
+# NoImg when the card lacks the matching image.
+if(FLASH_MB_LIMIT_SIZE LESS 2)
+	set(offload_to_firmware FALSE)
+else()
+	set(offload_to_firmware TRUE)
+endif()
+
 set(add_to_firmware TRUE)
 set(MODE_FLAGS "-O3")
 
@@ -389,7 +401,7 @@ set(MODE_CPPSRC
 # Moved to the SD card: the SPI flash cannot hold this and the Meshtastic
 # basebands at once. m4_init_from_sd() loads /BASEBAND/<TAG>.img on demand, so
 # copy the matching .img from build/firmware/baseband/ to the card.
-set(add_to_firmware FALSE)
+set(add_to_firmware ${offload_to_firmware})
 DeclareTargets(PAFT afsktx)
 set(add_to_firmware TRUE)
 
@@ -400,7 +412,7 @@ set(MODE_CPPSRC
 )
 # Moved off the SPI flash to make room; loaded from /BASEBAND/PAPR.img on the SD card.
 # APRS TX (PAFT afsktx) already lives there, so the pair is consistent.
-set(add_to_firmware FALSE)
+set(add_to_firmware ${offload_to_firmware})
 DeclareTargets(PAPR aprsrx)
 set(add_to_firmware TRUE)
 
@@ -418,7 +430,7 @@ set(MODE_CPPSRC
 	proc_ble_tx.cpp
 )
 # Off the SPI flash to make room: loaded from the SD card as /BASEBAND/PBTT.img.
-set(add_to_firmware FALSE)
+set(add_to_firmware ${offload_to_firmware})
 DeclareTargets(PBTT btletx)
 set(add_to_firmware TRUE)
 
@@ -430,7 +442,7 @@ set(MODE_CPPSRC
 	proc_ais.cpp
 )
 # Off the SPI flash to make room: loaded from the SD card as /BASEBAND/PAIS.img.
-set(add_to_firmware FALSE)
+set(add_to_firmware ${offload_to_firmware})
 DeclareTargets(PAIS ais)
 set(add_to_firmware TRUE)
 
@@ -457,7 +469,7 @@ set(MODE_CPPSRC
 # Moved to the SD card: the SPI flash cannot hold this and the Meshtastic
 # basebands at once. m4_init_from_sd() loads /BASEBAND/<TAG>.img on demand, so
 # copy the matching .img from build/firmware/baseband/ to the card.
-set(add_to_firmware FALSE)
+set(add_to_firmware ${offload_to_firmware})
 DeclareTargets(PSON sonde)
 set(add_to_firmware TRUE)
 
@@ -481,7 +493,7 @@ set(MODE_CPPSRC
 # Moved to the SD card: the SPI flash cannot hold this and the Meshtastic
 # basebands at once. m4_init_from_sd() loads /BASEBAND/<TAG>.img on demand, so
 # copy the matching .img from build/firmware/baseband/ to the card.
-set(add_to_firmware FALSE)
+set(add_to_firmware ${offload_to_firmware})
 DeclareTargets(PMTX mic_tx)
 set(add_to_firmware TRUE)
 
@@ -514,7 +526,7 @@ set(MODE_CPPSRC
 # Moved to the SD card: the SPI flash cannot hold this and the Meshtastic
 # basebands at once. m4_init_from_sd() loads /BASEBAND/<TAG>.img on demand, so
 # copy the matching .img from build/firmware/baseband/ to the card.
-set(add_to_firmware FALSE)
+set(add_to_firmware ${offload_to_firmware})
 DeclareTargets(PRDS rds)
 set(add_to_firmware TRUE)
 
@@ -525,7 +537,7 @@ set(MODE_CPPSRC
 # Moved to the SD card: the SPI flash cannot hold this and the Meshtastic
 # basebands at once. m4_init_from_sd() loads /BASEBAND/<TAG>.img on demand, so
 # copy the matching .img from build/firmware/baseband/ to the card.
-set(add_to_firmware FALSE)
+set(add_to_firmware ${offload_to_firmware})
 DeclareTargets(PREP replay)
 set(add_to_firmware TRUE)
 
@@ -536,7 +548,7 @@ set(MODE_CPPSRC
 # Moved to the SD card: the SPI flash cannot hold this and the Meshtastic
 # basebands at once. m4_init_from_sd() loads /BASEBAND/<TAG>.img on demand, so
 # copy the matching .img from build/firmware/baseband/ to the card.
-set(add_to_firmware FALSE)
+set(add_to_firmware ${offload_to_firmware})
 DeclareTargets(PSPE wideband_spectrum)
 set(add_to_firmware TRUE)
 
@@ -556,7 +568,7 @@ set(MODE_CPPSRC
 # Moved to the SD card: the SPI flash cannot hold this and the Meshtastic
 # basebands at once. m4_init_from_sd() loads /BASEBAND/<TAG>.img on demand, so
 # copy the matching .img from build/firmware/baseband/ to the card.
-set(add_to_firmware FALSE)
+set(add_to_firmware ${offload_to_firmware})
 DeclareTargets(PSGD subghzd)
 set(add_to_firmware TRUE)
 
@@ -568,7 +580,7 @@ set(MODE_CPPSRC
 # Moved to the SD card: the SPI flash cannot hold this and the Meshtastic
 # basebands at once. m4_init_from_sd() loads /BASEBAND/<TAG>.img on demand, so
 # copy the matching .img from build/firmware/baseband/ to the card.
-set(add_to_firmware FALSE)
+set(add_to_firmware ${offload_to_firmware})
 DeclareTargets(PWTH weather)
 set(add_to_firmware TRUE)
 
@@ -586,7 +598,7 @@ set(MODE_CPPSRC
 DeclareTargets(PFUT flash_utility)
 
 ### Place external app and disabled images below so they don't get added to the firmware
-set(add_to_firmware FALSE)
+set(add_to_firmware ${offload_to_firmware})
 set(MODE_FLAGS "-O3")
 
 ### VOR TX
