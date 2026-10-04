@@ -552,6 +552,13 @@ set(add_to_firmware ${offload_to_firmware})
 DeclareTargets(PSPE wideband_spectrum)
 set(add_to_firmware TRUE)
 
+### Spectrum Analyzer
+
+set(MODE_CPPSRC
+	proc_spec_an.cpp
+)
+DeclareTargets(PSAN spec_an)
+
 
 ### WFM Audio
 
