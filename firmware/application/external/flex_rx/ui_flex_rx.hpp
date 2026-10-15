@@ -27,6 +27,7 @@ class FlexAppView : public View {
 
     // Saved settings
     rf::Frequency frequency_value{931740000};
+    bool small_font{false};  // message list in the 5x8 font, as POCSAG RX offers
 
     RxRadioState radio_state_{};
 
@@ -37,7 +38,8 @@ class FlexAppView : public View {
     app_settings::SettingsManager settings_{
         "rx_flex",
         app_settings::Mode::RX,
-        {{"frequency", &frequency_value}}};
+        {{"frequency", &frequency_value},
+         {"small_font", &small_font}}};
 
     // Status bar state (updated from BIW packets)
     char status_time_[12]{};  // "HH:MM:SS"
@@ -74,9 +76,16 @@ class FlexAppView : public View {
         {0, 2 * 16, screen_width, 16},
         ""};
 
-    // Message display area (below status rows)
+    // Message display area (below status rows, above the bottom row)
     Console console{
-        {0, 3 * 16, screen_width, screen_height - 4 * 16}};
+        {0, 3 * 16, screen_width, screen_height - 5 * 16}};
+
+    Checkbox check_small_font{
+        {UI_POS_X(0), UI_POS_Y_BOTTOM(2)},
+        10,
+        "Small font"};
+
+    void apply_font();
 
     // Message handlers
     void on_packet(const FlexPacketMessage* message);
