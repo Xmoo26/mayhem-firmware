@@ -25,7 +25,8 @@ FlexAppView::FlexAppView(NavigationView& nav)
                   &rssi,
                   &text_status1,
                   &text_status2,
-                  &console});
+                  &console,
+                  &check_small_font});
 
     // Restore saved frequency
     field_frequency.set_value(frequency_value);
@@ -46,6 +47,13 @@ FlexAppView::FlexAppView(NavigationView& nav)
     baseband::set_flex_config();
 
     text_status1.set("No signal");
+    check_small_font.set_value(small_font);
+    check_small_font.on_select = [this](Checkbox&, bool v) {
+        small_font = v;
+        apply_font();
+    };
+    apply_font();
+
     console.writeln("Ready");
 }
 
@@ -56,6 +64,12 @@ FlexAppView::~FlexAppView() {
 
 void FlexAppView::focus() {
     field_frequency.focus();
+}
+
+// The message list in the small 5x8 font or the regular one, as POCSAG RX offers.
+void FlexAppView::apply_font() {
+    console.set_style(small_font ? Theme::getInstance()->bg_darkest_small
+                                 : Theme::getInstance()->bg_darkest);
 }
 
 // Add message to console
