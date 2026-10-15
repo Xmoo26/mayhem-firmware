@@ -57,10 +57,11 @@ FlexAppView::FlexAppView(NavigationView& nav)
                   &field_vga,
                   &rssi,
                   &text_status1,
-                  &text_status2,
-                  &console,
+                  &button_config,
+                  &text_time,
                   &text_config,
-                  &button_config});
+                  &text_status2,
+                  &console});
 
     // Restore saved frequency
     field_frequency.set_value(frequency_value);
@@ -106,12 +107,13 @@ void FlexAppView::refresh_ui() {
     console.set_style(flex_settings_.small_font ? Theme::getInstance()->bg_darkest_small
                                                 : Theme::getInstance()->bg_darkest);
 
+    // Fits the 8 columns next to the time: "RAW KEEP" at most.
     std::string s;
     if (flex_settings_.enable_log)
-        s = flex_settings_.log_raw ? "LOG+RAW " : "LOG ";
+        s = flex_settings_.log_raw ? "RAW" : "LOG";
     if (flex_settings_.filter_mode != FLEX_FILTER_NONE) {
-        s += flex_settings_.filter_mode == FLEX_FILTER_KEEP ? "KEEP " : "DROP ";
-        s += to_string_dec_uint(flex_settings_.filter_capcode);
+        if (!s.empty()) s += ' ';
+        s += flex_settings_.filter_mode == FLEX_FILTER_KEEP ? "KEEP" : "DROP";
     }
     text_config.set(s);
 }
@@ -173,22 +175,11 @@ void FlexAppView::on_packet(const FlexPacketMessage* message) {
     const char* type = flex_type_tag(pkt.type);
     const char* pol = pkt.is_inverted ? "I" : "N";
 
-    // Update status row 1: C/F speed polarity time timezone
-    {
-        std::string s1 = "C" + to_string_dec_uint(pkt.cycle) +
-                         "/F" + to_string_dec_uint(pkt.frame) +
-                         " " + to_string_dec_uint(pkt.bitrate) +
-                         " " + pol;
-        if (status_time_[0]) {
-            s1 += "  ";
-            s1 += status_time_;
-        }
-        if (status_tz_[0]) {
-            s1 += " ";
-            s1 += status_tz_;
-        }
-        text_status1.set(s1);
-    }
+    // Status row 1: C/F speed polarity
+    text_status1.set("C" + to_string_dec_uint(pkt.cycle) +
+                     "/F" + to_string_dec_uint(pkt.frame) +
+                     " " + to_string_dec_uint(pkt.bitrate) +
+                     " " + pol);
 
     // Update status row 2 from BIW data
     if (pkt.type == 9) {
@@ -251,6 +242,14 @@ void FlexAppView::on_packet(const FlexPacketMessage* message) {
         }
         if (pkt.fiw_roaming) s2 += " R";
         text_status2.set(s2);
+
+        // Time row: network time and zone from the BIW
+        std::string st = status_time_;
+        if (status_tz_[0]) {
+            if (!st.empty()) st += ' ';
+            st += status_tz_;
+        }
+        text_time.set(st);
     }
 
     // Console: skip BIW, tone-only (V=010) unless asked for, SHORT reserved (t=3),

@@ -145,26 +145,28 @@ class FlexAppView : public View {
     RSSI rssi{
         {UI_POS_X(21), 0, UI_POS_WIDTH(9), 4}};
 
-    // Status rows (rows 1-2)
+    // Status rows 1-3. Row 1: cycle/frame, rate, polarity and the Config button (as in
+    // POCSAG RX); row 2: network time and zone, with what Config has switched on;
+    // row 3: system ids (BIW).
     Text text_status1{
-        {0, 1 * 16, screen_width, 16},
+        {0, 1 * 16, UI_POS_WIDTH(21), 16},
+        ""};
+    Button button_config{
+        {UI_POS_X(22), 1 * 16, UI_POS_WIDTH(8), 16},
+        "Config"};
+    Text text_time{
+        {0, 2 * 16, UI_POS_WIDTH(22), 16},
+        ""};
+    Text text_config{
+        {UI_POS_X(22), 2 * 16, UI_POS_WIDTH(8), 16},
         ""};
     Text text_status2{
-        {0, 2 * 16, screen_width, 16},
+        {0, 3 * 16, screen_width, 16},
         ""};
 
-    // Message display area (below status rows, above the bottom row)
+    // Message display area, below the status rows down to the bottom of the view.
     Console console{
-        {0, 3 * 16, screen_width, screen_height - 5 * 16}};
-
-    // Bottom row: what the Config screen has switched on, and the button to it.
-    Text text_config{
-        {UI_POS_X(0), UI_POS_Y_BOTTOM(2), UI_POS_WIDTH(22), 16},
-        ""};
-
-    Button button_config{
-        {UI_POS_X(22), UI_POS_Y_BOTTOM(2), UI_POS_WIDTH(8), 16},
-        "Config"};
+        {0, 4 * 16, screen_width, screen_height - 5 * 16}};
 
     void refresh_ui();
     bool passes_filter(const flex::FlexPacket& pkt) const;
