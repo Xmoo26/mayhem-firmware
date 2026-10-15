@@ -8,11 +8,81 @@
 #include "ui_rssi.hpp"
 #include "app_settings.hpp"
 #include "radio_state.hpp"
+#include "log_file.hpp"
 
 #include <string>
 #include <vector>
 
 namespace ui::external_app::flex_rx {
+
+enum FlexFilter : uint8_t {
+    FLEX_FILTER_NONE,
+    FLEX_FILTER_DROP,  // hide pages for the filter capcode
+    FLEX_FILTER_KEEP   // show only pages for the filter capcode
+};
+
+// Options set in the FLEX Config screen, kept in the app settings (as POCSAG RX does).
+struct FlexSettings {
+    bool enable_log = false;     // decoded pages to LOGS/FLEX.TXT
+    bool log_raw = false;        // also every packet with all its fields (BIW included)
+    bool small_font = false;     // message list in the 5x8 font
+    bool hide_tone_only = true;  // tone-only (address-only) pages carry no text
+    uint8_t filter_mode = FLEX_FILTER_NONE;
+    uint64_t filter_capcode = 0;
+};
+
+class FlexSettingsView : public View {
+   public:
+    FlexSettingsView(NavigationView& nav, FlexSettings& settings);
+
+    std::string title() const override { return "FLEX Config"; };
+    void focus() override { button_save.focus(); }
+
+   private:
+    FlexSettings& settings_;
+
+    Labels labels{
+        {{2 * 8, 10 * 16}, "Filter Mode:", Theme::getInstance()->fg_light->foreground},
+        {{2 * 8, 12 * 16}, "Capcode:", Theme::getInstance()->fg_light->foreground},
+    };
+
+    Checkbox check_log{
+        {2 * 8, 1 * 16},
+        10,
+        "Enable Log"};
+
+    Checkbox check_log_raw{
+        {2 * 8, 3 * 16},
+        12,
+        "Log Raw Data"};
+
+    Checkbox check_small_font{
+        {2 * 8, 5 * 16},
+        14,
+        "Use Small Font"};
+
+    Checkbox check_hide_tone{
+        {2 * 8, 7 * 16},
+        14,
+        "Hide Tone Only"};
+
+    OptionsField opt_filter_mode{
+        {15 * 8, 10 * 16},
+        4,
+        {{"None", FLEX_FILTER_NONE},
+         {"Drop", FLEX_FILTER_DROP},
+         {"Keep", FLEX_FILTER_KEEP}}};
+
+    SymField field_filter_capcode{
+        {15 * 8, 12 * 16},
+        10,
+        SymField::Type::Dec,
+        true /*explicit_edit*/};
+
+    Button button_save{
+        {UI_POS_X_CENTER(10), UI_POS_Y(17), 10 * 8, 2 * 16},
+        "Save"};
+};
 
 class FlexAppView : public View {
    public:
@@ -27,7 +97,7 @@ class FlexAppView : public View {
 
     // Saved settings
     rf::Frequency frequency_value{931740000};
-    bool small_font{false};  // message list in the 5x8 font, as POCSAG RX offers
+    FlexSettings flex_settings_{};
 
     RxRadioState radio_state_{};
 
@@ -39,7 +109,14 @@ class FlexAppView : public View {
         "rx_flex",
         app_settings::Mode::RX,
         {{"frequency", &frequency_value},
-         {"small_font", &small_font}}};
+         {"small_font", &flex_settings_.small_font},
+         {"log", &flex_settings_.enable_log},
+         {"log_raw", &flex_settings_.log_raw},
+         {"hide_tone_only", &flex_settings_.hide_tone_only},
+         {"filter_mode", &flex_settings_.filter_mode},
+         {"filter_capcode", &flex_settings_.filter_capcode}}};
+
+    LogFile log_file_{};
 
     // Status bar state (updated from BIW packets)
     char status_time_[12]{};  // "HH:MM:SS"
@@ -80,12 +157,17 @@ class FlexAppView : public View {
     Console console{
         {0, 3 * 16, screen_width, screen_height - 5 * 16}};
 
-    Checkbox check_small_font{
-        {UI_POS_X(0), UI_POS_Y_BOTTOM(2)},
-        10,
-        "Small font"};
+    // Bottom row: what the Config screen has switched on, and the button to it.
+    Text text_config{
+        {UI_POS_X(0), UI_POS_Y_BOTTOM(2), UI_POS_WIDTH(22), 16},
+        ""};
 
-    void apply_font();
+    Button button_config{
+        {UI_POS_X(22), UI_POS_Y_BOTTOM(2), UI_POS_WIDTH(8), 16},
+        "Config"};
+
+    void refresh_ui();
+    bool passes_filter(const flex::FlexPacket& pkt) const;
 
     // Message handlers
     void on_packet(const FlexPacketMessage* message);

@@ -5,6 +5,7 @@
 #include "string_format.hpp"
 #include "memory_map.hpp"
 #include "usb_serial_asyncmsg.hpp"
+#include "file_path.hpp"
 
 using namespace portapack;
 
@@ -12,6 +13,38 @@ namespace ui::external_app::flex_rx {
 
 static const int flex_tz_table[] = {0, 60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 660, 720,
                                     210, 270, 330, 0, 345, 390, 570, -210, -660, -600, -540, -480, -420, -360, -300, -240, -180, -120, -60};
+
+FlexSettingsView::FlexSettingsView(
+    NavigationView& nav,
+    FlexSettings& settings)
+    : settings_{settings} {
+    add_children(
+        {&labels,
+         &check_log,
+         &check_log_raw,
+         &check_small_font,
+         &check_hide_tone,
+         &opt_filter_mode,
+         &field_filter_capcode,
+         &button_save});
+
+    check_log.set_value(settings_.enable_log);
+    check_log_raw.set_value(settings_.log_raw);
+    check_small_font.set_value(settings_.small_font);
+    check_hide_tone.set_value(settings_.hide_tone_only);
+    opt_filter_mode.set_by_value(settings_.filter_mode);
+    field_filter_capcode.set_value(settings_.filter_capcode);
+
+    button_save.on_select = [this, &nav](Button&) {
+        settings_.enable_log = check_log.value();
+        settings_.log_raw = check_log_raw.value();
+        settings_.small_font = check_small_font.value();
+        settings_.hide_tone_only = check_hide_tone.value();
+        settings_.filter_mode = opt_filter_mode.selected_index_value();
+        settings_.filter_capcode = field_filter_capcode.to_integer();
+        nav.pop();
+    };
+}
 
 FlexAppView::FlexAppView(NavigationView& nav)
     : nav_{nav} {
@@ -26,7 +59,8 @@ FlexAppView::FlexAppView(NavigationView& nav)
                   &text_status1,
                   &text_status2,
                   &console,
-                  &check_small_font});
+                  &text_config,
+                  &button_config});
 
     // Restore saved frequency
     field_frequency.set_value(frequency_value);
@@ -47,12 +81,13 @@ FlexAppView::FlexAppView(NavigationView& nav)
     baseband::set_flex_config();
 
     text_status1.set("No signal");
-    check_small_font.set_value(small_font);
-    check_small_font.on_select = [this](Checkbox&, bool v) {
-        small_font = v;
-        apply_font();
+    button_config.on_select = [this](Button&) {
+        nav_.push<FlexSettingsView>(flex_settings_);
+        nav_.set_on_pop([this]() { refresh_ui(); });
     };
-    apply_font();
+
+    log_file_.append(logs_dir / u"FLEX.TXT");
+    refresh_ui();
 
     console.writeln("Ready");
 }
@@ -66,10 +101,31 @@ void FlexAppView::focus() {
     field_frequency.focus();
 }
 
-// The message list in the small 5x8 font or the regular one, as POCSAG RX offers.
-void FlexAppView::apply_font() {
-    console.set_style(small_font ? Theme::getInstance()->bg_darkest_small
-                                 : Theme::getInstance()->bg_darkest);
+// Apply the Config screen's choices: console font and the summary on the bottom row.
+void FlexAppView::refresh_ui() {
+    console.set_style(flex_settings_.small_font ? Theme::getInstance()->bg_darkest_small
+                                                : Theme::getInstance()->bg_darkest);
+
+    std::string s;
+    if (flex_settings_.enable_log)
+        s = flex_settings_.log_raw ? "LOG+RAW " : "LOG ";
+    if (flex_settings_.filter_mode != FLEX_FILTER_NONE) {
+        s += flex_settings_.filter_mode == FLEX_FILTER_KEEP ? "KEEP " : "DROP ";
+        s += to_string_dec_uint(flex_settings_.filter_capcode);
+    }
+    text_config.set(s);
+}
+
+// Capcode filter from the Config screen; applies to pages, not to system info (BIW).
+bool FlexAppView::passes_filter(const flex::FlexPacket& pkt) const {
+    switch (flex_settings_.filter_mode) {
+        case FLEX_FILTER_KEEP:
+            return pkt.capcode == flex_settings_.filter_capcode;
+        case FLEX_FILTER_DROP:
+            return pkt.capcode != flex_settings_.filter_capcode;
+        default:
+            return true;
+    }
 }
 
 // Add message to console
@@ -197,9 +253,11 @@ void FlexAppView::on_packet(const FlexPacketMessage* message) {
         text_status2.set(s2);
     }
 
-    // Console: skip BIW, tone-only (V=010), SHORT reserved (t=3)
-    bool skip_gui = (pkt.type == 9 || pkt.type == 2);
+    // Console: skip BIW, tone-only (V=010) unless asked for, SHORT reserved (t=3),
+    // and pages the capcode filter leaves out.
+    bool skip_gui = (pkt.type == 9) || (pkt.type == 2 && flex_settings_.hide_tone_only);
     if (pkt.type == 8 && pkt.function == 3) skip_gui = true;
+    if (pkt.type != 9 && !passes_filter(pkt)) skip_gui = true;
     if (!skip_gui) {
         auto cf = to_string_dec_uint(pkt.cycle) + "/" + to_string_dec_uint(pkt.frame);
         std::string line = cf + " " + to_string_dec_uint(pkt.bitrate) +
@@ -239,10 +297,16 @@ void FlexAppView::on_packet(const FlexPacketMessage* message) {
             }
         }
         log_message(line);
+        if (flex_settings_.enable_log)
+            log_file_.write_entry(line);
     }
 
-    // Serial: pipe-delimited
-    if (portapack::usb_serial.serial_connected()) {
+    // Serial, and the raw log: pipe-delimited, every field. The raw log follows the
+    // capcode filter for pages; system info (BIW) is always kept.
+    const bool to_serial = portapack::usb_serial.serial_connected();
+    const bool to_raw_log = flex_settings_.enable_log && flex_settings_.log_raw &&
+                            (pkt.type == 9 || passes_filter(pkt));
+    if (to_serial || to_raw_log) {
         std::string s;
         s = "FLEX|";
         s += to_string_dec_uint(pkt.cycle);
@@ -322,7 +386,10 @@ void FlexAppView::on_packet(const FlexPacketMessage* message) {
                 s += '"';
             }
         }
-        UsbSerialAsyncmsg::asyncmsg(s);
+        if (to_serial)
+            UsbSerialAsyncmsg::asyncmsg(s);
+        if (to_raw_log)
+            log_file_.write_entry(s);
     }
 }
 
