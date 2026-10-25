@@ -381,9 +381,6 @@ bool reload_bundled_baseband() {
     }
 
     application_information.externalAppEntry(nav);
-    // Games read d-pad diagonals themselves; keep the chord gestures out of their way.
-    if (application_information.menu_location == app_location_t::GAMES)
-        nav.suppress_chords();
     return true;
 }
 
@@ -420,8 +417,6 @@ bool reload_bundled_baseband() {
     }
 
     nav.push<StandaloneView>(app_image);
-    if (reinterpret_cast<standalone_application_information_t*>(app_image)->menu_location == app_location_t::GAMES)
-        nav.suppress_chords();
     return true;
 }
 
@@ -436,8 +431,6 @@ bool reload_bundled_baseband() {
     }
 
     nav.push<StandaloneView>(app_image);
-    if (reinterpret_cast<standalone_application_information_t*>(app_image)->menu_location == app_location_t::GAMES)
-        nav.suppress_chords();
     return true;
 }
 
