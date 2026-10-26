@@ -209,7 +209,7 @@ class SondeProcessor : public BasebandProcessor {
     PacketBuilder<BitPattern, NeverMatch, FixedLength> packet_builder_fsk_2400_MRZ{
         {0b10011001100110011001100110011001100110101010ULL, 44, 1},
         {},
-        {752},
+        {800},
         [this](const baseband::Packet& packet) {
             const SondePacketMessage message{sonde::Packet::Type::Meteoradiy_MRZ, packet};
             shared_memory.application_queue.push(message);
