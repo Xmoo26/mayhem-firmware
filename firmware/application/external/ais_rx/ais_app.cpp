@@ -180,6 +180,144 @@ static std::string true_heading(const ais::TrueHeading value) {
     }
 }
 
+// ERI ship and convoy types (inland AIS), short enough for the detail view.
+static std::string eri_ship_type(const uint16_t code) {
+    if (code >= 8210 && code <= 8290)
+        return "Pushtow, " + to_string_dec_uint((code - 8200) / 10) + ((code == 8290) ? "+ barges" : " barge(s)");
+    if (code >= 8310 && code <= 8370)
+        return "Pushtow, " + to_string_dec_uint((code - 8300) / 10) + " incl. tank";
+    switch (code) {
+        case 8000:
+            return "unknown";
+        case 8010:
+            return "Motor freighter";
+        case 8020:
+            return "Motor tanker";
+        case 8021:
+            return "Motor tanker, liquid N";
+        case 8022:
+            return "Motor tanker, liquid C";
+        case 8023:
+            return "Motor tanker, dry bulk";
+        case 8030:
+            return "Container vessel";
+        case 8040:
+            return "Gas tanker";
+        case 8050:
+            return "Motor freighter, tug";
+        case 8060:
+            return "Motor tanker, tug";
+        case 8070:
+            return "Freighter + alongside";
+        case 8080:
+            return "Freighter + tanker";
+        case 8090:
+            return "Freighter pushing";
+        case 8100:
+            return "Freighter pushing tanker";
+        case 8110:
+            return "Tug, freighter";
+        case 8120:
+            return "Tug, tanker";
+        case 8130:
+            return "Tug freighter, coupled";
+        case 8140:
+            return "Tug fr./tanker, coupled";
+        case 8150:
+            return "Freight barge";
+        case 8160:
+            return "Tank barge";
+        case 8161:
+            return "Tank barge, liquid N";
+        case 8162:
+            return "Tank barge, liquid C";
+        case 8163:
+            return "Tank barge, dry bulk";
+        case 8170:
+            return "Freight barge, containers";
+        case 8180:
+            return "Tank barge, gas";
+        case 8400:
+            return "Tug, single";
+        case 8410:
+            return "Tug, with tow";
+        case 8420:
+            return "Tug, assisting";
+        case 8430:
+            return "Pushboat, single";
+        case 8440:
+            return "Passenger ship";
+        case 8441:
+            return "Ferry";
+        case 8442:
+            return "Red cross ship";
+        case 8443:
+            return "Cruise ship";
+        case 8444:
+            return "Passenger, no cabins";
+        case 8450:
+            return "Service / police / port";
+        case 8460:
+            return "Work craft / dredger";
+        case 8470:
+            return "Object, towed";
+        case 8480:
+            return "Fishing boat";
+        case 8490:
+            return "Bunker ship";
+        case 8500:
+            return "Barge tanker, chemical";
+        case 8510:
+            return "Object";
+        case 1500:
+            return "General cargo (sea)";
+        case 1510:
+            return "Unit carrier (sea)";
+        case 1520:
+            return "Bulk carrier (sea)";
+        case 1530:
+            return "Tanker (sea)";
+        case 1540:
+            return "Liquefied gas tanker";
+        case 1850:
+            return "Pleasure craft > 20 m";
+        case 1900:
+            return "Fast ship";
+        case 1910:
+            return "Hydrofoil";
+        case 1920:
+            return "Fast catamaran";
+        default:
+            return "ERI " + to_string_dec_uint(code);
+    }
+}
+
+static std::string decimal(const uint32_t value, const uint32_t scale, const int32_t decimals) {
+    return to_string_dec_uint(value / scale) + "." + to_string_dec_uint(value % scale, decimals, '0');
+}
+
+// "110.0x11.4 T2.80 loaded": length x beam, draught and load status, as known.
+static std::string inland_size(const AISRecentEntry::Inland& inland) {
+    std::string s{};
+    if (inland.length_dm && inland.beam_dm)
+        s = decimal(inland.length_dm, 10, 1) + "x" + decimal(inland.beam_dm, 10, 1);
+    if (inland.draught_cm)
+        s += (s.empty() ? "T" : " T") + decimal(inland.draught_cm, 100, 2);
+    if (inland.load_status == 1)
+        s += " empty";
+    else if (inland.load_status == 2)
+        s += " loaded";
+    return s;
+}
+
+static std::string inland_hazard(const uint8_t hazard) {
+    if (hazard <= 3)
+        return to_string_dec_uint(hazard) + " blue cone" + (hazard == 1 ? "" : "s");
+    if (hazard == 4)
+        return "B flag";
+    return {};
+}
+
 } /* namespace format */
 
 void AISLogger::on_packet(const ais::Packet& packet) {
@@ -226,6 +364,20 @@ void AISRecentEntry::update(const ais::Packet& packet) {
             call_sign = trim(packet.text(70, 7));
             name = trim(packet.text(112, 20));
             destination = trim(packet.text(302, 20));
+            break;
+
+        case 8:
+            // Inland ship static and voyage related data
+            if (packet.read(40, 10) == 200 && packet.read(50, 6) == 10 && packet.length() >= 168 + 23) {  // 23: end flag, stuffing, FCS
+                inland.valid = true;
+                inland.eni = trim(packet.text(56, 8));
+                inland.length_dm = packet.read(104, 13);
+                inland.beam_dm = packet.read(117, 10);
+                inland.ship_type = packet.read(127, 14);
+                inland.hazard = packet.read(141, 3);
+                inland.draught_cm = packet.read(144, 11);
+                inland.load_status = packet.read(155, 2);
+            }
             break;
 
         case 18:
@@ -383,7 +535,7 @@ void AISRecentEntryDetailView::paint(Painter& painter) {
     const auto s = style();
     const auto rect = screen_rect();
 
-    auto field_rect = Rect{rect.left(), rect.top() + 16, rect.width(), 16};
+    auto field_rect = Rect{rect.left(), rect.top(), rect.width(), 16};
 
     field_rect = draw_field(painter, field_rect, s, "MMSI", format::mmsi(entry_.mmsi));
     field_rect = draw_field(painter, field_rect, s, "Ctry", format::mid(entry_.mmsi));
@@ -398,6 +550,12 @@ void AISRecentEntryDetailView::paint(Painter& painter) {
     field_rect = draw_field(painter, field_rect, s, "CoG ", format::course_over_ground(entry_.last_position.course_over_ground));
     field_rect = draw_field(painter, field_rect, s, "Head", format::true_heading(entry_.last_position.true_heading));
     field_rect = draw_field(painter, field_rect, s, "Rx #", to_string_dec_uint(entry_.received_count));
+    if (entry_.inland.valid) {
+        const auto hazard = format::inland_hazard(entry_.inland.hazard);
+        field_rect = draw_field(painter, field_rect, s, "ENI ", entry_.inland.eni + (hazard.empty() ? "" : " " + hazard));
+        field_rect = draw_field(painter, field_rect, s, "Type", format::eri_ship_type(entry_.inland.ship_type));
+        field_rect = draw_field(painter, field_rect, s, "Size", format::inland_size(entry_.inland));
+    }
 }
 
 void AISRecentEntryDetailView::set_entry(const AISRecentEntry& entry) {

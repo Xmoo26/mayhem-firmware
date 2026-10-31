@@ -75,6 +75,18 @@ struct AISRecentEntry {
     size_t received_count;
     int8_t navigational_status;
 
+    // Inland AIS (message 8, DAC 200, FI 10): what inland waterway vessels add.
+    struct Inland {
+        bool valid{false};
+        std::string eni{};       // European vessel identification number
+        uint16_t ship_type{0};   // ERI code
+        uint16_t length_dm{0};   // 0.1 m
+        uint16_t beam_dm{0};     // 0.1 m
+        uint16_t draught_cm{0};  // 0.01 m
+        uint8_t hazard{5};       // blue cones; 4 = B flag, 5 = unknown
+        uint8_t load_status{0};  // 1 = unloaded, 2 = loaded
+    } inland;
+
     AISRecentEntry()
         : AISRecentEntry{0} {
     }
@@ -87,7 +99,8 @@ struct AISRecentEntry {
           destination{},
           last_position{},
           received_count{0},
-          navigational_status{-1} {
+          navigational_status{-1},
+          inland{} {
     }
 
     Key key() const {
@@ -137,10 +150,10 @@ class AISRecentEntryDetailView : public View {
     AISRecentEntry entry_{};
 
     Button button_done{
-        {UI_POS_X_CENTER(12) + UI_POS_WIDTH(6), UI_POS_Y(14), UI_POS_WIDTH(12), UI_POS_HEIGHT(2)},
+        {UI_POS_X_CENTER(12) + UI_POS_WIDTH(6), UI_POS_Y(16), UI_POS_WIDTH(12), UI_POS_HEIGHT(2)},
         "Done"};
     Button button_see_map{
-        {UI_POS_X_CENTER(12) - UI_POS_WIDTH(8), UI_POS_Y(14), UI_POS_WIDTH(12), UI_POS_HEIGHT(2)},
+        {UI_POS_X_CENTER(12) - UI_POS_WIDTH(8), UI_POS_Y(16), UI_POS_WIDTH(12), UI_POS_HEIGHT(2)},
         "See on map"};
     GeoMapView* geomap_view{nullptr};
     bool send_updates{false};
