@@ -2147,6 +2147,8 @@ struct VDL2FrameMessage : public Message {
 // One CC1101 packet for the Sub-GHz chat (subghz_chat), CRC checked.
 struct SubGhzChatPacketMessage : public Message {
     static constexpr size_t MAX_LENGTH = 60;
+    // receiver noise for the app's encryption, kept up by the image at the start of bb_data
+    static constexpr size_t NOISE_POOL_BYTES = 32;
 
     constexpr SubGhzChatPacketMessage()
         : Message{ID::SubGhzChatPacket} {}
