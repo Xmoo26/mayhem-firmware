@@ -685,6 +685,7 @@ SECTIONS
         KEEP(*(.external_app.app_vdl2_rx.application_information));
         */external/vdl2_rx/*(*ui*external_app*vdl2_rx*);
     } > ram_external_app_vdl2_rx
+
     .external_app_subghz_chat : ALIGN(4) SUBALIGN(4)
     {
         KEEP(*(.external_app.app_subghz_chat.application_information));
