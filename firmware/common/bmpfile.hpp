@@ -39,6 +39,11 @@ class BMPFile {
     bool seek(uint32_t x, uint32_t y);
     bool expand_y(uint32_t new_y);
     bool expand_y_delta(uint32_t delta_y);
+    // Bulk writes after the last row of a top down image, as create() makes them: the rows are
+    // counted in the header only by commit_rows(), which also syncs the file, so a file that is
+    // not committed still opens at its last commit. The pixel functions need a seek() after these.
+    bool append_rows(const uint8_t* data, size_t bytes);
+    bool commit_rows();
     uint32_t getbpr() { return byte_per_row; };
 
     bool read_next_px(ui::Color& px, bool seek);
@@ -52,6 +57,7 @@ class BMPFile {
 
    private:
     bool advance_curr_px(uint32_t num);
+    uint32_t rows_end();
     bool is_opened = false;
     bool is_read_only = true;
 
@@ -62,6 +68,7 @@ class BMPFile {
     uint8_t byte_per_px = 1;
     uint32_t byte_per_row = 0;
 
+    size_t pending_bytes = 0;
     uint32_t currx = 0;
     uint32_t curry = 0;
     ui::Color bg{};

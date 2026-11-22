@@ -63,6 +63,7 @@ bool BMPFile::create(const std::filesystem::path& file, uint32_t x, uint32_t y) 
     auto result = bmpimage.open(file, false, true);
     if (!result.value().ok()) return false;
     file_pos = 0;
+    pending_bytes = 0;
     byte_per_row = (x * 3 % 4 == 0) ? x * 3 : (x * 3 + (4 - ((x * 3) % 4)));  // with padding
     bmpimage.seek(file_pos);
     bmp_header.signature = 0x4D42;
@@ -100,6 +101,7 @@ bool BMPFile::open(const std::filesystem::path& file, bool readonly) {
     auto result = bmpimage.open(file, readonly, false);
     if (!result.value().ok()) return false;
     file_pos = 0;
+    pending_bytes = 0;
     bmpimage.seek(file_pos);
     bmpimage.read(&bmp_header, sizeof(bmp_header_t));
     if (!((bmp_header.signature == 0x4D42) &&
@@ -296,6 +298,45 @@ bool BMPFile::write_next_px(ui::Color& px) {
     auto res = bmpimage.write(buffer, byte_per_px);
     if (res.is_error()) return false;
     advance_curr_px();
+    return true;
+}
+
+// where the rows the header counts end: bmp_header.size can't be trusted for a file that was opened
+uint32_t BMPFile::rows_end() {
+    return bmp_header.image_data + get_real_height() * byte_per_row;
+}
+
+// Writes raw row data (BGR, rows padded to 4 bytes) after the last row, wherever the file was
+// left by the pixel functions; see commit_rows(). Not for a bottom up image, where the last row
+// in the file is the first of the image.
+bool BMPFile::append_rows(const uint8_t* data, size_t bytes) {
+    if (!is_opened || is_read_only || bmp_header.height > 0) return false;
+    if (bmpimage.seek(rows_end() + pending_bytes).is_error()) return false;
+    const auto res = bmpimage.write(data, bytes);
+    // a full card writes less, without an error
+    if (res.is_error() || res.value() != bytes) return false;
+    pending_bytes += bytes;
+    return true;
+}
+
+// Counts the whole rows appended since the last commit in the header, and has the card take
+// them: until the sync the directory still has the old length of the file, and the rows are
+// lost with the power. They stay pending until all of that is done, a later commit tries again.
+bool BMPFile::commit_rows() {
+    if (!is_opened || is_read_only || bmp_header.height > 0) return false;
+    const uint32_t rows = pending_bytes / byte_per_row;
+    if (!rows) return true;
+    const uint32_t delta = rows * byte_per_row;
+    auto header = bmp_header;
+    header.height = -1 * (int32_t)(get_real_height() + rows);
+    header.data_size = rows_end() + delta - bmp_header.image_data;
+    header.size = rows_end() + delta;
+    if (bmpimage.seek(0).is_error()) return false;
+    const auto res = bmpimage.write(&header, sizeof(header));
+    if (res.is_error() || res.value() != sizeof(header)) return false;
+    if (bmpimage.sync().is_valid()) return false;
+    bmp_header = header;
+    pending_bytes -= delta;
     return true;
 }
 

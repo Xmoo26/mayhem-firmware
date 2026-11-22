@@ -441,6 +441,11 @@ set(EXTCPPSRC
 	external/subghz_chat/main.cpp
 	external/subghz_chat/ui_subghz_chat.cpp
 	external/subghz_chat/chat_crypto.cpp
+	#lrpt_rx
+	external/lrpt_rx/main.cpp
+	external/lrpt_rx/ui_lrpt_rx.cpp
+	external/lrpt_rx/lrpt_decoder.cpp
+	external/lrpt_rx/lrpt_deinterleaver.cpp
 )
 
 set(EXTAPPLIST
@@ -548,5 +553,6 @@ set(EXTAPPLIST
 	wmbus_rx
 	vdl2_rx
 	subghz_chat
+	lrpt_rx
 )
 
